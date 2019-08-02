@@ -13,7 +13,7 @@ import com.facebook.react.bridge.Promise;
 import com.facebook.react.bridge.ReactApplicationContext;
 import com.facebook.react.bridge.ReactContextBaseJavaModule;
 import com.facebook.react.bridge.ReactMethod;
-import com.facebook.react.modules.systeminfo.AndroidInfoHelpers;
+import com.facebook.react.module.annotations.ReactModule;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -21,17 +21,24 @@ import java.util.List;
 
 import javax.annotation.Nullable;
 
+@ReactModule(name = "WorkersManager")
 public class WorkersManager extends ReactContextBaseJavaModule {
 
   private final ReactApplicationContext context;
   private final ReactPackage packages[];
+  private Integer key;
+  private String bundleRoot;
+  private String bundleResource;
+  private Integer bundlerPort;
+  private Promise promise;
 
   private final HashMap<Integer, WorkersInstance> workers = new HashMap<>();
   private final List<Integer> bundlerPorts = new ArrayList<>();
 
+
   public WorkersManager(
-    final ReactApplicationContext context,
-    final ReactPackage packages[]
+          final ReactApplicationContext context,
+          final ReactPackage packages[]
   ) {
     super(context);
     this.context = context;
@@ -49,24 +56,30 @@ public class WorkersManager extends ReactContextBaseJavaModule {
 
   @ReactMethod
   public void startWorker(
-    final Integer key,
-    final String bundleRoot,
-    final String bundleResource,
-    final Integer bundlerPort,
-    final Promise promise
+          final Integer key,
+          final String bundleRoot,
+          final String bundleResource,
+          final Integer bundlerPort,
+          final Promise promise
   ) {
     Assertions.assertCondition(!this.workers.containsKey(key), "Key already in use");
+
+    this.key = key;
+    this.bundleRoot = bundleRoot;
+    this.bundleResource = bundleResource;
+    this.bundlerPort = bundlerPort;
+    this.promise = promise;
 
     final boolean hasBundlerPort = this.allocateBundlerPort(bundlerPort);
 
     final WorkersInstance worker = new WorkersInstance(
-      key,
-      context,
-      this.packages,
-      bundleRoot,
-      bundleResource,
-      hasBundlerPort ? bundlerPort : null,
-      promise
+            key,
+            context,
+            this.packages,
+            bundleRoot,
+            bundleResource,
+            hasBundlerPort ? bundlerPort : null,
+            promise
     );
 
     this.workers.put(key, worker);
@@ -81,20 +94,16 @@ public class WorkersManager extends ReactContextBaseJavaModule {
 
   @ReactMethod
   public void stopWorker(final Integer key) {
-    final WorkersInstance worker = this.workers.remove(key);
-    Assertions.assertNotNull(worker);
-
-    new Handler(Looper.getMainLooper()).post(new Runnable() {
-      @Override
-      public void run() {
-        worker.stop();
-      }
-    });
+    this.workers.remove(key);
   }
 
   @ReactMethod
   public void postMessage(final Integer key, final String message) {
-    final WorkersInstance worker = this.workers.get(key);
+    WorkersInstance worker = this.workers.get(key);
+    if (worker == null) {
+      startWorker(this.key, this.bundleRoot, this.bundleResource, this.bundlerPort, this.promise);
+      worker = this.workers.get(key);
+    }
     Assertions.assertNotNull(worker).postMessage(message);
   }
 
@@ -108,8 +117,8 @@ public class WorkersManager extends ReactContextBaseJavaModule {
 
   protected void emit(final String name, final Object body) {
     this.context
-      .getJSModule(WorkersManager.RCTDeviceEventEmitter.class)
-      .emit(name, body);
+            .getJSModule(WorkersManager.RCTDeviceEventEmitter.class)
+            .emit(name, body);
   }
 
   /**

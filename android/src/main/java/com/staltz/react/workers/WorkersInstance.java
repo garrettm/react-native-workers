@@ -24,7 +24,6 @@ import com.facebook.react.common.LifecycleState;
 import com.facebook.react.modules.systeminfo.AndroidInfoHelpers;
 import com.facebook.react.packagerconnection.PackagerConnectionSettings;
 import com.facebook.react.shell.MainReactPackage;
-import com.facebook.react.uimanager.UIImplementationProvider;
 import static com.facebook.infer.annotation.ThreadConfined.UI;
 
 import java.util.ArrayList;
@@ -163,11 +162,6 @@ public class WorkersInstance implements ReactInstanceEventListener, LifecycleEve
         allPackages.add(0, new WorkersInstancePackage());
         allPackages.add(0, new MainReactPackage());
         return allPackages;
-      }
-
-      @Override
-      protected UIImplementationProvider getUIImplementationProvider() {
-        return null;
       }
     };
   }
